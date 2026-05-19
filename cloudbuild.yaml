@@ -1,3 +1,6 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 steps:
 
   # Build Docker Image
@@ -10,7 +13,7 @@ steps:
         '.'
       ]
 
-  # Push Image
+  # Push Docker Image
   - name: 'gcr.io/cloud-builders/docker'
     args:
       [
