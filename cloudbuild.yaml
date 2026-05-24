@@ -1,42 +1,38 @@
-options:
-  logging: CLOUD_LOGGING_ONLY
-
 steps:
 
-  # Build Docker Image
-  - name: 'gcr.io/cloud-builders/docker'
-    args:
-      [
-        'build',
-        '-t',
-        'asia-south1-docker.pkg.dev/$PROJECT_ID/hello-repo/hello-app:$COMMIT_SHA',
-        '.'
-      ]
+# Build Docker image
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+    - 'build'
+    - '-t'
+    # - 'asia-south1-docker.pkg.dev/$PROJECT_ID/hello-repo/hello-app:$COMMIT_SHA'
+    - 'asia-south1-docker.pkg.dev/$PROJECT_ID/dg-cms-test/hello-app:v1'
+    # - './app'
+    - '.'
 
-  # Push Docker Image
-  - name: 'gcr.io/cloud-builders/docker'
-    args:
-      [
-        'push',
-        'asia-south1-docker.pkg.dev/$PROJECT_ID/hello-repo/hello-app:$COMMIT_SHA'
-      ]
+# Push image
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+    - 'push'
+    # - 'asia-south1-docker.pkg.dev/$PROJECT_ID/hello-repo/hello-app:$COMMIT_SHA'
+    - 'asia-south1-docker.pkg.dev/$PROJECT_ID/dg-cms-test/hello-app:v1'
 
-  # Deploy Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
-    args:
-      [
-        'run',
-        'deploy',
-        'hello-service',
-        '--image',
-        'asia-south1-docker.pkg.dev/$PROJECT_ID/hello-repo/hello-app:$COMMIT_SHA',
-        '--region',
-        'asia-south1',
-        '--platform',
-        'managed',
-        '--allow-unauthenticated'
-      ]
+# Deploy to Cloud Run
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+    - 'run'
+    - 'deploy'
+    - 'hello-webapp'
+    - '--image'
+    # - 'asia-south1-docker.pkg.dev/$PROJECT_ID/hello-repo/hello-app:$COMMIT_SHA'
+    - 'asia-south1-docker.pkg.dev/$PROJECT_ID/dg-cms-test/hello-app:v1'
+    - '--region'
+    - 'asia-south1'
+    - '--platform'
+    - 'managed'
+    - '--allow-unauthenticated'
 
 images:
-  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/hello-repo/hello-app:$COMMIT_SHA'
+# - 'asia-south1-docker.pkg.dev/$PROJECT_ID/hello-repo/hello-app:$COMMIT_SHA'
+- 'asia-south1-docker.pkg.dev/$PROJECT_ID/dg-cms-test/hello-app:v1'
