@@ -1,4 +1,4 @@
-name: Build and Deploy
+name: Build and Deploy to Cloud Run
 
 on:
   push:
@@ -9,45 +9,69 @@ permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: cloudrun-production
+  cancel-in-progress: true
+
 env:
-  PROJECT_ID: my-project
-  REGION: asia-south1
-  REPOSITORY: Python-WebApp-HelloWorld
-  SERVICE: hello-service
+  IMAGE_NAME: webapp
 
 jobs:
-  deploy:
+  build-and-deploy:
+    name: Build and Deploy
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Authenticate to GCP
+      - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: projects/123456789/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-          service_account: github-deployer@my-project.iam.gserviceaccount.com
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      - name: Setup gcloud
+      - name: Setup gcloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Configure Docker
+      - name: Verify Authentication
         run: |
-          gcloud auth configure-docker asia-south1-docker.pkg.dev
+          gcloud auth list
+          gcloud config set project "${{ vars.GCP_PROJECT_ID }}"
+
+      - name: Configure Docker Authentication
+        run: |
+          gcloud auth configure-docker \
+            ${{ vars.GCP_REGION }}-docker.pkg.dev \
+            --quiet
 
       - name: Build Docker Image
         run: |
-          docker build -t asia-south1-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/webapp:${{ github.sha }} .
+          docker build \
+            -t ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REGISTRY_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            .
 
       - name: Push Docker Image
         run: |
-          docker push asia-south1-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/webapp:${{ github.sha }}
+          docker push \
+            ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REGISTRY_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      - name: Deploy Cloud Run
+      - name: Deploy to Cloud Run
         run: |
-          gcloud run deploy $SERVICE \
-            --image asia-south1-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/webapp:${{ github.sha }} \
-            --region $REGION \
-            --platform managed \
-            --allow-unauthenticated
+          gcloud run deploy "${{ vars.CLOUD_RUN_SERVICE }}" \
+            --image="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REGISTRY_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}" \
+            --region="${{ vars.GCP_REGION }}" \
+            --platform=managed \
+            --quiet
+
+      - name: Get Service URL
+        run: |
+          SERVICE_URL=$(gcloud run services describe \
+            "${{ vars.CLOUD_RUN_SERVICE }}" \
+            --region="${{ vars.GCP_REGION }}" \
+            --format='value(status.url)')
+
+          echo ""
+          echo "Application URL:"
+          echo "$SERVICE_URL"
